@@ -4,7 +4,7 @@
 **Whisper Transcriber Pro MAX** es una herramienta de transcripción y resumen automático de audio/video que utiliza inteligencia artificial para:  
 
 ✅ **Transcribir** archivos de audio o video a texto con marcas de tiempo.  
-✅ **Generar resúmenes automáticos** usando el modelo DeepSeek (OpenRouter).  
+✅ **Generar resúmenes automáticos** usando el modelo de IA DeepSeek (OpenRouter).  
 ✅ **Exportar resultados** en múltiples formatos (TXT, DOCX, PDF).  
 ✅ **Optimizar tiempo** en la generación de transcripciones precisas.  
 
