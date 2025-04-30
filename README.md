@@ -93,15 +93,4 @@ chmod +x install_and_run.sh
 
 ---
 
-## **📌 Notas Finales**  
-- **Sin GPU**: Usa modelos pequeños ("Tiny", "Base") para mayor velocidad.  
-- **Con GPU NVIDIA**: Instala CUDA para mejor rendimiento.  
-- **Personalización**: Modifica `SUMMARY_PROMPT` en `.env` para ajustar los resúmenes.  
 
-¡Listo! 🎉 Ahora puedes transcribir y resumir cualquier audio/video fácilmente.  
-
-**Descarga el proyecto**: [GitHub Repo Link](#) *(simulado)*  
-
---- 
-
-¿Necesitas ayuda adicional? ¡Abre un *issue* en el repositorio! 🛠️
