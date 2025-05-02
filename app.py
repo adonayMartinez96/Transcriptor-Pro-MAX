@@ -283,32 +283,32 @@ class TranscriberPro:
             self.transcription_done = True
             progress_thread.join()
             
-            def _find_ffmpeg(self):
-                """Busca FFmpeg en ubicaciones posibles con verificación de funcionamiento"""
-                # 1. Primero verifica en la ruta del sistema
+    def _find_ffmpeg(self):
+        """Busca FFmpeg en ubicaciones posibles con verificación de funcionamiento"""
+        # 1. Primero verifica en la ruta del sistema
+        try:
+            subprocess.run(['ffmpeg', '-version'], check=True, capture_output=True)
+            return 'ffmpeg'  # Usa el comando global
+        except:
+            pass
+        
+        # 2. Busca en rutas locales comunes
+        local_paths = [
+            os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin', 'ffmpeg.exe'),
+            os.path.join('ffmpeg', 'bin', 'ffmpeg.exe'),
+            'ffmpeg.exe'
+        ]
+        
+        for path in local_paths:
+            full_path = os.path.abspath(path)
+            if os.path.exists(full_path):
                 try:
-                    subprocess.run(['ffmpeg', '-version'], check=True, capture_output=True)
-                    return 'ffmpeg'  # Usa el comando global
+                    subprocess.run([full_path, '-version'], check=True, capture_output=True)
+                    return full_path
                 except:
-                    pass
-                
-                # 2. Busca en rutas locales comunes
-                local_paths = [
-                    os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin', 'ffmpeg.exe'),
-                    os.path.join('ffmpeg', 'bin', 'ffmpeg.exe'),
-                    'ffmpeg.exe'
-                ]
-                
-                for path in local_paths:
-                    full_path = os.path.abspath(path)
-                    if os.path.exists(full_path):
-                        try:
-                            subprocess.run([full_path, '-version'], check=True, capture_output=True)
-                            return full_path
-                        except:
-                            continue
-                
-                return None
+                    continue
+        
+        return None        
             
     def get_audio_duration(self, filepath):
         """Obtiene duración del archivo usando FFprobe con manejo robusto"""
