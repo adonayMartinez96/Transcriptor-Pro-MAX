@@ -23,6 +23,13 @@ class TranscriberPro:
         self.transcription_done = False
         self.current_transcription = ""
         
+         # Configuración de rutas FFmpeg
+        self.ffmpeg_path = self._find_ffmpeg()
+        if not self.ffmpeg_path:
+            messagebox.showerror("Error Crítico", "FFmpeg no está instalado. Ejecute install.bat primero.")
+            root.destroy()
+            return
+        
         # Cargar configuración desde .env
         load_dotenv()
         self.deepseek_config = {
@@ -276,19 +283,66 @@ class TranscriberPro:
             self.transcription_done = True
             progress_thread.join()
             
+            def _find_ffmpeg(self):
+                """Busca FFmpeg en ubicaciones posibles con verificación de funcionamiento"""
+                # 1. Primero verifica en la ruta del sistema
+                try:
+                    subprocess.run(['ffmpeg', '-version'], check=True, capture_output=True)
+                    return 'ffmpeg'  # Usa el comando global
+                except:
+                    pass
+                
+                # 2. Busca en rutas locales comunes
+                local_paths = [
+                    os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin', 'ffmpeg.exe'),
+                    os.path.join('ffmpeg', 'bin', 'ffmpeg.exe'),
+                    'ffmpeg.exe'
+                ]
+                
+                for path in local_paths:
+                    full_path = os.path.abspath(path)
+                    if os.path.exists(full_path):
+                        try:
+                            subprocess.run([full_path, '-version'], check=True, capture_output=True)
+                            return full_path
+                        except:
+                            continue
+                
+                return None
+            
     def get_audio_duration(self, filepath):
-        """Obtiene duración del archivo usando FFprobe"""
+        """Obtiene duración del archivo usando FFprobe con manejo robusto"""
+        if not self.ffmpeg_path:
+            return None
+            
         try:
+            # Determina la ruta de ffprobe basada en ffmpeg
+            if self.ffmpeg_path == 'ffmpeg':
+                ffprobe_cmd = 'ffprobe'
+            else:
+                ffprobe_dir = os.path.dirname(self.ffmpeg_path)
+                ffprobe_path = os.path.join(ffprobe_dir, 'ffprobe.exe')
+                ffprobe_cmd = ffprobe_path if os.path.exists(ffprobe_path) else 'ffprobe'
+            
             cmd = [
-                'ffprobe',
+                ffprobe_cmd,
                 '-v', 'error',
                 '-show_entries', 'format=duration',
                 '-of', 'default=noprint_wrappers=1:nokey=1',
                 filepath
             ]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            
+            result = subprocess.run(cmd, 
+                                capture_output=True, 
+                                text=True, 
+                                check=True,
+                                creationflags=subprocess.CREATE_NO_WINDOW)
             return float(result.stdout)
-        except:
+        except subprocess.CalledProcessError as e:
+            print(f"Error ffprobe (code {e.returncode}): {e.stderr}")
+            return None
+        except Exception as e:
+            print(f"Error inesperado: {str(e)}")
             return None
 
     
