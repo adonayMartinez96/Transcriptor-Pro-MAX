@@ -1,96 +1,110 @@
 @echo off
 SETLOCAL
+title Instalador de FFmpeg - Manteniendo ventana abierta
 
-:: ----------------------------------------------------------------
-:: INSTALADOR DE FFMPEG CON MANEJO DE NUEVA ESTRUCTURA DE CARPETAS
-:: ----------------------------------------------------------------
-
-echo.
-echo [INSTALACIÓN FFMPEG] Iniciando proceso...
+:: 1. Configurar consola para mejor visibilidad
+mode con: cols=100 lines=30
+color 0A
 echo.
 
-:: 1. Configurar rutas
+:: 2. Iniciar registro de instalación
+echo [%date% %time%] Iniciando instalacion de FFmpeg > install_log.txt
+echo [INSTALADOR FFMPEG] Iniciando proceso...
+echo Proceso completo se registra en install_log.txt
+echo.
+
+:: 3. Configurar rutas
 set "INSTALL_DIR=%~dp0ffmpeg"
-set "FFMPEG_EXE=%INSTALL_DIR%\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe"
-set "NEW_LOCATION=%INSTALL_DIR%\ffmpeg-master-latest-win64-gpl"
+set "FFMPEG_EXE=%INSTALL_DIR%\bin\ffmpeg.exe"
 set "ZIP_FILE=%INSTALL_DIR%\ffmpeg.zip"
 set "DOWNLOAD_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
-:: 2. Verificar si ya está instalado correctamente
+:: 4. Verificar instalación existente
 if exist "%FFMPEG_EXE%" (
-    echo [✔] FFmpeg ya está instalado en:
-    echo     "%FFMPEG_EXE%"
-    goto :EnsurePath
+   echo [✔] FFmpeg ya está instalado en: >> install_log.txt
+   echo %FFMPEG_EXE% >> install_log.txt
+   echo [✔] FFmpeg ya está instalado en:
+   echo     "%FFMPEG_EXE%"
+   goto :MenuFinal
 )
 
-:: 3. Crear directorio de instalación
-if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+:: 5. Crear directorio si no existe
+if not exist "%INSTALL_DIR%" (
+   echo [📁] Creando directorio de instalacion... >> install_log.txt
+   echo [📁] Creando directorio de instalacion...
+   mkdir "%INSTALL_DIR%"
+)
 
-:: 4. Descargar FFmpeg
+:: 6. Descargar FFmpeg
+echo [📥] Descargando FFmpeg... >> install_log.txt
 echo [📥] Descargando FFmpeg...
 powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest '%DOWNLOAD_URL%' -OutFile '%ZIP_FILE%'"
 if not exist "%ZIP_FILE%" (
-    echo [❌] Error en la descarga
-    pause
-    exit /b 1
+   echo [❌] Error en la descarga >> install_log.txt
+   echo [❌] Error en la descarga
+   echo URL usada: %DOWNLOAD_URL% >> install_log.txt
+   goto :ErrorInstalacion
 )
 
-:: 5. Extraer archivos
+:: 7. Extraer archivos
+echo [📦] Extrayendo FFmpeg... >> install_log.txt
 echo [📦] Extrayendo FFmpeg...
 powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%INSTALL_DIR%' -Force"
 del "%ZIP_FILE%"
 
-:: 6. Verificar nueva estructura de carpetas
+:: 8. Verificar instalación
 if not exist "%FFMPEG_EXE%" (
-    echo [❌] Error: No se encontró ffmpeg.exe en la ubicación esperada
-    echo.
-    echo [🔍] Estructura de carpetas encontrada:
-    dir "%NEW_LOCATION%" /s /b
-    
-    echo.
-    echo [ℹ] La estructura del ZIP ha cambiado. Se ajustará automáticamente...
-    
-    :: Mover los archivos a la ubicación esperada
-    if exist "%NEW_LOCATION%\bin\ffmpeg.exe" (
-        xcopy "%NEW_LOCATION%\bin" "%INSTALL_DIR%\bin\" /s /e /y
-        rmdir /s /q "%NEW_LOCATION%"
-        set "FFMPEG_EXE=%INSTALL_DIR%\bin\ffmpeg.exe"
-    ) else (
-        echo [❌] No se pudo encontrar ffmpeg.exe en ninguna ubicación
-        pause
-        exit /b 1
-    )
+   echo [❌] Archivos extraidos pero no se encontró ffmpeg.exe >> install_log.txt
+   echo [❌] Archivos extraidos pero no se encontró ffmpeg.exe
+   echo Contenido del directorio: >> install_log.txt
+   dir "%INSTALL_DIR%" /s >> install_log.txt
+   goto :ErrorInstalacion
 )
 
-:: 7. Verificar instalación final
-if exist "%FFMPEG_EXE%" (
-    echo [✔] FFmpeg instalado correctamente en:
-    echo     "%FFMPEG_EXE%"
-) else (
-    echo [❌] Error crítico: No se pudo instalar FFmpeg
-    pause
-    exit /b 1
-)
-
-:EnsurePath
-:: 8. Configurar PATH del sistema
-set "BIN_DIR=%~dp0ffmpeg\bin"
-echo %PATH% | find /i "%BIN_DIR%" >nul
+:: 9. Configurar PATH
+echo [⚙] Configurando PATH del sistema... >> install_log.txt
+echo [⚙] Configurando PATH del sistema...
+setx PATH "%PATH%;%INSTALL_DIR%\bin" /M >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [⚙] Configurando PATH del sistema...
-    setx PATH "%PATH%;%BIN_DIR%" /M >nul 2>&1
-    if %errorlevel% equ 0 (
-        echo [✔] PATH actualizado correctamente
-    ) else (
-        echo [⚠] No se pudo modificar el PATH global
-        echo     Ejecute como Administrador para acceso completo
-        echo     Usando PATH temporal para esta sesión...
-        set PATH=%PATH%;%BIN_DIR%
-    )
+   echo [⚠] No se pudo modificar el PATH global >> install_log.txt
+   echo [⚠] No se pudo modificar el PATH global
+   echo [ℹ] Ejecute como Administrador para acceso completo >> install_log.txt
 )
 
+:InstalacionExitosa
+echo [✔✔✔] INSTALACION COMPLETADA CON EXITO >> install_log.txt
+echo [✔✔✔] INSTALACION COMPLETADA CON EXITO
+echo FFmpeg instalado en: "%FFMPEG_EXE%" >> install_log.txt
+echo FFmpeg instalado en: "%FFMPEG_EXE%"
+goto :MenuFinal
+
+:ErrorInstalacion
+echo [❌❌❌] ERROR EN LA INSTALACION >> install_log.txt
+echo [❌❌❌] ERROR EN LA INSTALACION
+echo Revise el archivo install_log.txt para detalles >> install_log.txt
+
+:MenuFinal
 echo.
-echo [✔✔✔] INSTALACIÓN COMPLETADA CON ÉXITO
-echo     FFmpeg está listo para ser usado
-echo.
-pause
+echo ------------------------------------------
+echo  Instalacion finalizada. Opciones:
+echo  1. Ver el log completo (install_log.txt)
+echo  2. Probar FFmpeg
+echo  3. Salir
+echo ------------------------------------------
+set /p opcion="Seleccione una opcion (1-3): "
+
+if "%opcion%"=="1" (
+   notepad install_log.txt
+   goto :MenuFinal
+)
+if "%opcion%"=="2" (
+   echo Probando FFmpeg... >> install_log.txt
+   echo [TEST] Resultado de ffmpeg -version: >> install_log.txt
+   "%FFMPEG_EXE%" -version >> install_log.txt
+   "%FFMPEG_EXE%" -version
+   pause
+   goto :MenuFinal
+)
+if "%opcion%"=="3" exit
+
+goto :MenuFinal
