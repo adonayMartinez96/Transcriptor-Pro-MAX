@@ -27,6 +27,8 @@ class TranscriberPro:
         self.ffmpeg_path = os.path.abspath('ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe')
         self.ffprobe_path = os.path.abspath('ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe')
         
+         # Configuración absoluta y verificación de FFmpeg
+        self._verify_ffmpeg_installation()
         # Verificación explícita
         if not os.path.exists(self.ffmpeg_path) or not os.path.exists(self.ffprobe_path):
             messagebox.showerror("Error Crítico", 
@@ -336,6 +338,48 @@ class TranscriberPro:
         
         return None  
     
+    def _verify_ffmpeg_installation(self):
+        """Verificación robusta de la instalación de FFmpeg"""
+        # Ruta absoluta a los ejecutables
+        self.ffmpeg_path = os.path.abspath(os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin', 'ffmpeg.exe'))
+        self.ffprobe_path = os.path.abspath(os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin', 'ffprobe.exe'))
+        
+        # Verificar existencia de archivos
+        if not all(os.path.exists(p) for p in [self.ffmpeg_path, self.ffprobe_path]):
+            error_msg = (
+                "FFmpeg no está instalado correctamente.\n\n"
+                f"Archivos requeridos:\n"
+                f"- {self.ffmpeg_path}\n"
+                f"- {self.ffprobe_path}\n\n"
+                "Ejecute 'install.bat' como administrador."
+            )
+            messagebox.showerror("Error Crítico", error_msg)
+            self.root.after(100, self.root.destroy)
+            return False
+        
+        # Verificar que los ejecutables funcionan
+        try:
+            subprocess.run([self.ffmpeg_path, '-version'], 
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run([self.ffprobe_path, '-version'],
+                        check=True,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW)
+            return True
+        except subprocess.CalledProcessError as e:
+            error_msg = (
+                "Error al ejecutar FFmpeg:\n\n"
+                f"Comando fallido: {e.cmd}\n\n"
+                f"Error: {e.stderr.decode().strip()}"
+            )
+            messagebox.showerror("Error FFmpeg", error_msg)
+            self.root.after(100, self.root.destroy)
+            return False
+    
     def _find_ffmpeg_paths(self):
         """Busca FFmpeg y FFprobe en ubicaciones posibles"""
         # 1. Verificar en el PATH del sistema
@@ -368,7 +412,11 @@ class TranscriberPro:
         return (None, None)      
             
     def get_audio_duration(self, filepath):
-        """Versión ultra-robusta para obtener duración"""
+        """Versión ultra-robusta con logging detallado"""
+        if not hasattr(self, 'ffprobe_path') or not self.ffprobe_path:
+            print("[ERROR] ffprobe_path no está definido")
+            return None
+        
         try:
             cmd = [
                 self.ffprobe_path,
@@ -378,20 +426,28 @@ class TranscriberPro:
                 filepath
             ]
             
+            # Ejecución con timeout de 30 segundos
             result = subprocess.run(cmd,
                                 capture_output=True,
                                 text=True,
                                 check=True,
+                                timeout=30,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
             return float(result.stdout)
+        except subprocess.TimeoutExpired:
+            print("[ERROR] ffprobe timed out after 30 seconds")
+            return None
         except subprocess.CalledProcessError as e:
-            error_msg = f"Error ffprobe (code {e.returncode}):\n"
-            error_msg += f"Comando: {' '.join(cmd)}\n"
-            error_msg += f"Error: {e.stderr}"
-            print(error_msg)
+            error_details = {
+                'returncode': e.returncode,
+                'cmd': ' '.join(e.cmd),
+                'stderr': e.stderr,
+                'stdout': e.stdout
+            }
+            print(f"[ERROR] ffprobe failed: {error_details}")
             return None
         except Exception as e:
-            print(f"Error inesperado: {str(e)}")
+            print(f"[ERROR] Unexpected error: {str(e)}")
             return None
 
     
