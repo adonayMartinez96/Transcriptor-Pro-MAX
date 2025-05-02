@@ -1,84 +1,76 @@
 @echo off
 SETLOCAL
 
-:: ----------------------------------------------------------------------------
-:: Script de instalación de FFmpeg para Windows con validaciones completas
-:: ----------------------------------------------------------------------------
+:: -----------------------------------------------------------------
+:: Instalador de FFmpeg para Whisper Transcriber Pro - Versión Mejorada
+:: -----------------------------------------------------------------
 
 echo.
-echo [INSTALACIÓN FFMPEG] Iniciando proceso...
+echo [INSTALADOR FFMPEG] Iniciando proceso de instalación...
 echo.
 
-:: 1. Verificar si FFmpeg ya está instalado y accesible
-echo [VALIDACIÓN] Verificando si FFmpeg está en el PATH...
-ffmpeg -version > nul 2>&1
-if %errorlevel% equ 0 (
-    echo [✔] FFmpeg ya está instalado y accesible desde el PATH.
-    goto :EOF
-)
+:: 1. Verificación inteligente de FFmpeg existente
+set "FFMPEG_PATH=%CD%\ffmpeg\bin\ffmpeg.exe"
 
-:: 2. Crear carpeta de instalación si no existe
-set "INSTALL_DIR=%~dp0ffmpeg"  %:: Ruta relativa al directorio del script
-if not exist "%INSTALL_DIR%" (
-    mkdir "%INSTALL_DIR%"
-)
-
-:: 3. Descargar FFmpeg (última versión para Windows)
-echo [DESCARGA] Obteniendo FFmpeg desde GitHub...
-set "FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-set "ZIP_FILE=%INSTALL_DIR%\ffmpeg.zip"
-
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%FFMPEG_URL%' -OutFile '%ZIP_FILE%'" || (
-    echo [ERROR] Falló la descarga de FFmpeg. Verifica tu conexión a internet.
-    pause
-    exit /b 1
-)
-
-:: 4. Extraer archivos
-echo [EXTRACCIÓN] Descomprimiendo FFmpeg...
-powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%INSTALL_DIR%' -Force" || (
-    echo [ERROR] No se pudo extraer el archivo ZIP.
-    pause
-    exit /b 1
-)
-
-:: 5. Agregar al PATH del sistema
-echo [CONFIGURACIÓN] Agregando FFmpeg al PATH...
-set "BIN_PATH=%INSTALL_DIR%\bin"
-
-:: Verificar si ya está en el PATH
-echo %PATH% | find /i "%BIN_PATH%" > nul
-if %errorlevel% equ 0 (
-    echo [✔] La ruta ya está en el PATH.
-) else (
-    :: Agregar al PATH permanentemente
-    setx PATH "%PATH%;%BIN_PATH%" /M > nul 2>&1
-    if %errorlevel% neq 0 (
-        echo [ADVERTENCIA] No se pudo agregar al PATH global (ejecuta como Administrador).
-        echo [SOLUCIÓN] Usando PATH temporal para esta sesión...
-        set PATH=%PATH%;%BIN_PATH%
-    ) else (
-        echo [✔] Ruta agregada al PATH correctamente.
+:: Verificar si ya está instalado localmente y funciona
+if exist "%FFMPEG_PATH%" (
+    "%FFMPEG_PATH%" -version >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo [✔] FFmpeg ya está instalado y funciona en:
+        echo       %FFMPEG_PATH%
+        goto :EnsurePath
     )
 )
 
-:: 6. Validación final
-echo.
-echo [VALIDACIÓN] Comprobando instalación...
-ffmpeg -version > nul 2>&1
-if %errorlevel% equ 0 (
-    echo [✔] FFmpeg instalado correctamente.
-    echo [INFO] Versión instalada:
-    ffmpeg -version | findstr /i "version"
-) else (
-    echo [ERROR] La instalación falló en la última validación.
-    echo [SOLUCIÓN] Ejecuta este script como Administrador o reinstala manualmente.
+:: 2. Descarga e instalación
+echo [📥] Descargando FFmpeg...
+set "DOWNLOAD_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+set "ZIP_FILE=%TEMP%\ffmpeg.zip"
+
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest '%DOWNLOAD_URL%' -OutFile '%ZIP_FILE%'"
+
+if not exist "%ZIP_FILE%" (
+    echo [❌] Error: No se pudo descargar FFmpeg
     pause
     exit /b 1
 )
 
-:: 7. Limpieza (opcional)
-del "%ZIP_FILE%" > nul 2>&1
-echo.
-echo [✔] Proceso completado. Reinicia tus terminales para aplicar cambios en el PATH.
+echo [📦] Extrayendo archivos...
+if exist "%CD%\ffmpeg" rmdir /s /q "%CD%\ffmpeg"
+powershell -Command "Expand-Archive -Path '%ZIP_FILE%' -DestinationPath '%CD%\ffmpeg' -Force"
+del "%ZIP_FILE%"
+
+:: 3. Verificación de instalación
+if not exist "%FFMPEG_PATH%" (
+    echo [❌] Error crítico: No se encontró ffmpeg.exe después de la instalación
+    pause
+    exit /b 1
+)
+
+:EnsurePath
+:: 4. Agregar al PATH del sistema (solo si no está)
+echo %PATH% | find /i "%CD%\ffmpeg\bin" >nul
+if %errorlevel% neq 0 (
+    echo [⚙] Agregando a PATH del sistema...
+    setx PATH "%PATH%;%CD%\ffmpeg\bin" /M >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo [⚠] No se pudo modificar el PATH global (ejecuta como Admin)
+        echo [ℹ] Usando PATH temporal para esta sesión...
+        set PATH=%PATH%;%CD%\ffmpeg\bin
+    )
+)
+
+:: 5. Prueba final
+echo [🔍] Verificando instalación...
+"%FFMPEG_PATH%" -version >nul 2>&1
+if %errorlevel% equ 0 (
+    echo.
+    echo [✔✔✔] INSTALACIÓN COMPLETADA CON ÉXITO
+    echo       FFmpeg está listo para ser usado por Whisper Transcriber Pro
+    echo.
+    echo [ℹ] Puedes ejecutar ahora tu aplicación normalmente
+) else (
+    echo [❌] Error: La instalación no pasó la verificación final
+)
+
 pause
