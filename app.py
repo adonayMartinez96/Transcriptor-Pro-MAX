@@ -23,13 +23,38 @@ class TranscriberPro:
         self.transcription_done = False
         self.current_transcription = ""
         
-         # Configuración de rutas FFmpeg
-        self.ffmpeg_path, self.ffprobe_path = self._find_ffmpeg_paths()
-        if not self.ffmpeg_path:
+         # Configuración absoluta de rutas FFmpeg
+        self.ffmpeg_path = os.path.abspath('ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffmpeg.exe')
+        self.ffprobe_path = os.path.abspath('ffmpeg/ffmpeg-master-latest-win64-gpl/bin/ffprobe.exe')
+        
+        # Verificación explícita
+        if not os.path.exists(self.ffmpeg_path) or not os.path.exists(self.ffprobe_path):
             messagebox.showerror("Error Crítico", 
-                            "FFmpeg no está instalado correctamente.\n\n"
-                            "Por favor ejecute 'install.bat' como administrador primero.")
+                            f"Archivos de FFmpeg no encontrados en:\n\n"
+                            f"FFmpeg: {self.ffmpeg_path}\n"
+                            f"FFprobe: {self.ffprobe_path}\n\n"
+                            "Ejecute 'install.bat' como administrador.")
             root.after(100, root.destroy)
+            return
+        
+        # Verificación de que los ejecutables funcionan
+        try:
+            subprocess.run([self.ffmpeg_path, '-version'], 
+                        check=True, 
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW)
+            subprocess.run([self.ffprobe_path, '-version'], 
+                        check=True, 
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.PIPE,
+                        creationflags=subprocess.CREATE_NO_WINDOW)
+        except subprocess.CalledProcessError as e:
+            messagebox.showerror("Error FFmpeg", 
+                            f"Error al ejecutar FFmpeg:\n\n{e.stderr.decode()}")
+            root.after(100, root.destroy)
+            return
+        
         
         # Cargar configuración desde .env
         load_dotenv()
@@ -343,10 +368,7 @@ class TranscriberPro:
         return (None, None)      
             
     def get_audio_duration(self, filepath):
-        """Versión robusta para obtener duración del audio"""
-        if not self.ffprobe_path:
-            return None  # Fallback a duración por defecto
-        
+        """Versión ultra-robusta para obtener duración"""
         try:
             cmd = [
                 self.ffprobe_path,
@@ -362,9 +384,15 @@ class TranscriberPro:
                                 check=True,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
             return float(result.stdout)
+        except subprocess.CalledProcessError as e:
+            error_msg = f"Error ffprobe (code {e.returncode}):\n"
+            error_msg += f"Comando: {' '.join(cmd)}\n"
+            error_msg += f"Error: {e.stderr}"
+            print(error_msg)
+            return None
         except Exception as e:
-            print(f"Error al obtener duración: {str(e)}")
-            return None  # Fallback a duración por defecto
+            print(f"Error inesperado: {str(e)}")
+            return None
 
     
     def _generate_summary_thread(self):
