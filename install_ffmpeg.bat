@@ -15,7 +15,7 @@ echo.
 
 :: 3. Configurar rutas
 set "INSTALL_DIR=%~dp0ffmpeg"
-set "FFMPEG_EXE=%INSTALL_DIR%\bin\ffmpeg.exe"
+set "FFMPEG_EXE=%INSTALL_DIR%\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe"
 set "ZIP_FILE=%INSTALL_DIR%\ffmpeg.zip"
 set "DOWNLOAD_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
