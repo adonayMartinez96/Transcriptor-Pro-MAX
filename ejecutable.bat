@@ -1,6 +1,6 @@
 @echo off
-SETLOCAL
-title Instalador Completo - FFmpeg y Dependencias Python
+SETLOCAL EnableDelayedExpansion
+title Instalador de Whisper Transcriber Pro
 mode con: cols=100 lines=30
 color 0A
 
@@ -9,134 +9,80 @@ color 0A
 :: ==============================================
 set "LOG_FILE=install_log.txt"
 echo [%date% %time%] Inicio de instalación > %LOG_FILE%
-echo [INSTALADOR COMPLETO] Iniciando proceso...
+echo [INSTALADOR WHISPER TRANSCRIBER PRO] Iniciando proceso...
 echo.
 
 :: ==============================================
-:: INSTALACIÓN DE FFMPEG (VERSIÓN MEJORADA)
+:: VERIFICACIÓN DE PYTHON
 :: ==============================================
-set "FFMPEG_DIR=%~dp0ffmpeg"
-set "FFMPEG_EXE=%FFMPEG_DIR%\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe"
-set "FFMPEG_BIN=%FFMPEG_DIR%\ffmpeg-master-latest-win64-gpl\bin"
-set "FFMPEG_ZIP=%FFMPEG_DIR%\ffmpeg.zip"
-set "FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-
-:: Verificar si FFmpeg ya está instalado
-if exist "%FFMPEG_EXE%" (
-    echo [✔] FFmpeg ya está instalado en: >> %LOG_FILE%
-    echo %FFMPEG_EXE% >> %LOG_FILE%
-    echo [✔] FFmpeg ya está instalado:
-    echo     "%FFMPEG_EXE%"
-    goto :CheckPythonDeps
-)
-
-:: Instalación de FFmpeg
-echo [📥] Descargando FFmpeg... >> %LOG_FILE%
-if not exist "%FFMPEG_DIR%" mkdir "%FFMPEG_DIR%"
-powershell -Command "[Net.ServicePointManager]::SecurityProtocol = 'Tls12'; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest '%FFMPEG_URL%' -OutFile '%FFMPEG_ZIP%'"
-if not exist "%FFMPEG_ZIP%" (
-    echo [❌] Error en la descarga de FFmpeg >> %LOG_FILE%
-    echo [❌] Error: No se pudo descargar FFmpeg
-    pause
-    exit /b 1
-)
-
-echo [📦] Extrayendo FFmpeg... >> %LOG_FILE%
-powershell -Command "Expand-Archive -Path '%FFMPEG_ZIP%' -DestinationPath '%FFMPEG_DIR%' -Force"
-del "%FFMPEG_ZIP%"
-
-if not exist "%FFMPEG_EXE%" (
-    echo [❌] Error: No se encontró ffmpeg.exe >> %LOG_FILE%
-    echo [❌] Error crítico: Archivo ffmpeg.exe no encontrado después de la instalación
-    pause
-    exit /b 1
-)
-
-:: Configurar PATH para FFmpeg
-echo [⚙] Configurando PATH para FFmpeg... >> %LOG_FILE%
-setx PATH "%PATH%;%FFMPEG_BIN%" /M >nul 2>&1
+echo [🐍] Verificando instalación de Python... >> %LOG_FILE%
+python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [⚠] No se pudo modificar el PATH global >> %LOG_FILE%
-    set PATH=%PATH%;%FFMPEG_BIN%
-)
-
-echo [✔] FFmpeg instalado correctamente >> %LOG_FILE%
-echo [✔] FFmpeg instalado correctamente en:
-echo     "%FFMPEG_EXE%"
-
-:: ==============================================
-:: INSTALACIÓN DE DEPENDENCIAS PYTHON
-:: ==============================================
-:CheckPythonDeps
-echo [INFO] Verificando dependencias Python... >> %LOG_FILE%
-
-:: Verificar si pip está instalado
-python -m pip --version >nul 2>&1
-if %errorlevel% neq 0 (
-    echo [❌] Error: pip no está instalado o Python no está configurado >> %LOG_FILE%
-    echo [❌] Error: pip no está disponible. Verifique la instalación de Python
+    echo [❌] Python no está instalado o no está en el PATH >> %LOG_FILE%
+    echo [❌] Error: Python no encontrado
+    echo [ℹ] Descargue Python desde https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
-:: Verificar Whisper
-pip show whisper >nul 2>&1
-if %errorlevel% equ 0 (
-    echo [✔] Whisper ya está instalado >> %LOG_FILE%
-    echo [✔] Whisper ya está instalado
-    goto :StartApp
-)
+:: ==============================================
+:: LIMPIEZA DE DEPENDENCIAS EXISTENTES
+:: ==============================================
+echo [🧹] Limpiando dependencias anteriores... >> %LOG_FILE%
+echo [🧹] Desinstalando paquetes existentes...
 
-:: Instalar dependencias
-echo [INSTALACIÓN] Instalando dependencias Python... >> %LOG_FILE%
-echo [INSTALACIÓN] Actualizando pip...
-pip install --upgrade pip || (
-    echo [ERROR] Falló la actualización de pip >> %LOG_FILE%
-    echo [ERROR] Falló la actualización de pip
-    pause
-    exit /b 1
-)
+:: Lista de paquetes a desinstalar
+set "UNINSTALL_PACKAGES=whisper whisper-openai openai-whisper python-dotenv requests python-docx fpdf2"
 
-echo [INSTALACIÓN] Instalando dependencias del requirements.txt...
-if exist "requirements.txt" (
-    pip install -r requirements.txt --force-reinstall || (
-        echo [ERROR] Falló la instalación de dependencias >> %LOG_FILE%
-        echo [ERROR] Falló la instalación de dependencias
-        pause
-        exit /b 1
+for %%p in (%UNINSTALL_PACKAGES%) do (
+    echo [ℹ] Desinstalando %%p... >> %LOG_FILE%
+    pip uninstall %%p -y >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [✔] %%p desinstalado >> %LOG_FILE%
+    ) else (
+        echo [⚠] %%p no estaba instalado >> %LOG_FILE%
     )
-) else (
-    echo [ℹ] No se encontró requirements.txt, instalando whisper directamente >> %LOG_FILE%
-    pip install whisper --force-reinstall || (
-        echo [ERROR] Falló la instalación de whisper >> %LOG_FILE%
-        echo [ERROR] Falló la instalación de whisper
+)
+
+:: ==============================================
+:: INSTALACIÓN DE DEPENDENCIAS
+:: ==============================================
+echo [📦] Instalando dependencias... >> %LOG_FILE%
+
+:: Lista de dependencias principales
+set "DEPENDENCIES=openai-whisper python-dotenv requests python-docx fpdf2"
+
+for %%d in (%DEPENDENCIES%) do (
+    echo [ℹ] Instalando %%d... >> %LOG_FILE%
+    pip install %%d --force-reinstall --no-cache-dir || (
+        echo [❌] Error al instalar %%d >> %LOG_FILE%
+        echo [❌] Falló la instalación de %%d
         pause
         exit /b 1
     )
 )
 
-:: Verificar instalación de Whisper
-python -c "import whisper; print('Whisper instalado correctamente')" || (
-    echo [ERROR] Falló la verificación de Whisper >> %LOG_FILE%
-    echo [ERROR] Falló la verificación de Whisper
+:: ==============================================
+:: VERIFICACIÓN DE INSTALACIÓN
+:: ==============================================
+echo [🔍] Verificando instalación... >> %LOG_FILE%
+python -c "import whisper, dotenv, requests, docx, fpdf; print('Todas las dependencias están instaladas')" || (
+    echo [❌] Error: Faltan dependencias >> %LOG_FILE%
+    echo [❌] Algunas dependencias no se instalaron correctamente
     pause
     exit /b 1
 )
-
-echo [✔] Dependencias Python instaladas correctamente >> %LOG_FILE%
-echo [✔] Dependencias Python instaladas correctamente
 
 :: ==============================================
 :: INICIAR LA APLICACIÓN
 :: ==============================================
-:StartApp
+echo [🚀] Iniciando la aplicación... >> %LOG_FILE%
 echo.
-echo [✔✔✔] TODAS LAS DEPENDENCIAS INSTALADAS CON ÉXITO
-echo [INFO] Iniciando la aplicación...
-echo [APP] Iniciando app.py >> %LOG_FILE%
+echo [✔✔✔] INSTALACIÓN COMPLETADA CON ÉXITO
+echo [ℹ] Iniciando Whisper Transcriber Pro...
 python app.py || (
-    echo [ERROR] No se pudo iniciar app.py >> %LOG_FILE%
-    echo [ERROR] No se pudo iniciar la aplicación
+    echo [❌] Error al iniciar la aplicación >> %LOG_FILE%
+    echo [❌] No se pudo iniciar app.py
     pause
     exit /b 1
 )
@@ -145,6 +91,4 @@ python app.py || (
 :: FINALIZACIÓN
 :: ==============================================
 echo.
-echo Instalación completada. Puede cerrar esta ventana.
-echo Revise %LOG_FILE% para detalles técnicos.
 pause
