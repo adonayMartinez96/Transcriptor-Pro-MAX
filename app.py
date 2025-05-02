@@ -24,11 +24,12 @@ class TranscriberPro:
         self.current_transcription = ""
         
          # Configuración de rutas FFmpeg
-        self.ffmpeg_path = self._find_ffmpeg()
+        self.ffmpeg_path, self.ffprobe_path = self._find_ffmpeg_paths()
         if not self.ffmpeg_path:
-            messagebox.showerror("Error Crítico", "FFmpeg no está instalado. Ejecute install.bat primero.")
-            root.destroy()
-            return
+            messagebox.showerror("Error Crítico", 
+                            "FFmpeg no está instalado correctamente.\n\n"
+                            "Por favor ejecute 'install.bat' como administrador primero.")
+            root.after(100, root.destroy)
         
         # Cargar configuración desde .env
         load_dotenv()
@@ -308,42 +309,62 @@ class TranscriberPro:
                 except:
                     continue
         
-        return None        
+        return None  
+    
+    def _find_ffmpeg_paths(self):
+        """Busca FFmpeg y FFprobe en ubicaciones posibles"""
+        # 1. Verificar en el PATH del sistema
+        try:
+            subprocess.run(['ffmpeg', '-version'], check=True, capture_output=True)
+            subprocess.run(['ffprobe', '-version'], check=True, capture_output=True)
+            return ('ffmpeg', 'ffprobe')  # Usar comandos globales
+        except:
+            pass
+        
+        # 2. Buscar en rutas locales
+        base_paths = [
+            os.path.join('ffmpeg', 'ffmpeg-master-latest-win64-gpl', 'bin'),
+            os.path.join('ffmpeg', 'bin'),
+            ''
+        ]
+        
+        for base in base_paths:
+            ffmpeg = os.path.abspath(os.path.join(base, 'ffmpeg.exe'))
+            ffprobe = os.path.abspath(os.path.join(base, 'ffprobe.exe'))
+            
+            if os.path.exists(ffmpeg) and os.path.exists(ffprobe):
+                try:
+                    subprocess.run([ffmpeg, '-version'], check=True, capture_output=True)
+                    subprocess.run([ffprobe, '-version'], check=True, capture_output=True)
+                    return (ffmpeg, ffprobe)
+                except:
+                    continue
+        
+        return (None, None)      
             
     def get_audio_duration(self, filepath):
-        """Obtiene duración del archivo usando FFprobe con manejo robusto"""
-        if not self.ffmpeg_path:
-            return None
-            
+        """Versión robusta para obtener duración del audio"""
+        if not self.ffprobe_path:
+            return None  # Fallback a duración por defecto
+        
         try:
-            # Determina la ruta de ffprobe basada en ffmpeg
-            if self.ffmpeg_path == 'ffmpeg':
-                ffprobe_cmd = 'ffprobe'
-            else:
-                ffprobe_dir = os.path.dirname(self.ffmpeg_path)
-                ffprobe_path = os.path.join(ffprobe_dir, 'ffprobe.exe')
-                ffprobe_cmd = ffprobe_path if os.path.exists(ffprobe_path) else 'ffprobe'
-            
             cmd = [
-                ffprobe_cmd,
+                self.ffprobe_path,
                 '-v', 'error',
                 '-show_entries', 'format=duration',
                 '-of', 'default=noprint_wrappers=1:nokey=1',
                 filepath
             ]
             
-            result = subprocess.run(cmd, 
-                                capture_output=True, 
-                                text=True, 
+            result = subprocess.run(cmd,
+                                capture_output=True,
+                                text=True,
                                 check=True,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
             return float(result.stdout)
-        except subprocess.CalledProcessError as e:
-            print(f"Error ffprobe (code {e.returncode}): {e.stderr}")
-            return None
         except Exception as e:
-            print(f"Error inesperado: {str(e)}")
-            return None
+            print(f"Error al obtener duración: {str(e)}")
+            return None  # Fallback a duración por defecto
 
     
     def _generate_summary_thread(self):
